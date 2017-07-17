@@ -28,7 +28,10 @@ build = {
     brieflz = {
       sources = {
         'src/brieflz.c',
+        'vendor/brieflz/brieflz.c',
+        'vendor/brieflz/depacks.c',
       },
+      incdirs = 'vendor/brieflz',
     },
   },
 }
