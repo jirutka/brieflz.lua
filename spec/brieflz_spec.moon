@@ -25,8 +25,7 @@ describe 'pack', ->
 
   context 'given nil', ->
     it 'raises bad argument error', ->
-      assert.has_error (-> pack(nil)),
-          "bad argument #1 to 'pack' (string expected, got nil)"
+      assert.has_error -> pack(nil)
 
 
 describe 'depack', ->
@@ -44,12 +43,11 @@ describe 'depack', ->
     context 'and invalid size', ->
       it 'raises error', ->
         for i in *{3, -3}
-          assert.has_error (-> depack data_packed, #data + i), 'failed to depack data'
+          assert.has_error -> depack data_packed, #data + i
 
     context 'and negative size', ->
-      it 'raises bad argument error', ->
-        assert.has_error (-> depack data_packed, -3),
-            "bad argument #2 to 'depack' (must be positive integer)"
+      it 'raises error', ->
+        assert.has_error -> depack data_packed, -3
 
   context 'given invalid data', ->
     it 'raises error', ->
@@ -57,6 +55,5 @@ describe 'depack', ->
       assert.has_error -> depack(data, #data_packed - 3)
 
   context 'given nil, 0', ->
-    it 'raises bad argument error', ->
-      assert.has_error (-> depack nil, 0),
-          "bad argument #1 to 'depack' (string expected, got nil)"
+    it 'raises error', ->
+      assert.has_error -> depack nil, 0
