@@ -1,0 +1,3 @@
+# Fool GitHub to not consider script/* when determining
+# repository's main language.
+script/* linguist-vendored

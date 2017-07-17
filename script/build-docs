@@ -1,0 +1,11 @@
+#!/bin/sh
+# vim: set ts=4:
+#
+# Builds documentation.
+#
+set -eu
+
+. "$(dirname "$0")/bootstrap"
+
+einfo 'Running ldoc'
+ldoc --verbose .

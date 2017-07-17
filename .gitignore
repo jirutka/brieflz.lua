@@ -1,0 +1,6 @@
+/.tmp/
+/.venv/
+/doc/
+*.rock
+*.o
+*.so

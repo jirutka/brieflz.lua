@@ -1,0 +1,39 @@
+sudo: false
+language: c
+dist: trusty
+os:
+  - linux
+  - osx
+env:
+  global:
+    - secure: e3E7ou3wDnzZV9m/jN7ZXCKbJMq+/i9X1KNiybWkDaDKDKoU/zsl5f54KqK4tAFLA21rLW5ZRgX9ILKsIvsYcaZhzcqvTiERiuHyJDeNiv8nOTMU6NulfmyUXW3XAfmjFdrAYI7gdS5zvXA3uHFD8+1H9O+0M3Pt4zla+PFMxZi/3FiPlmmj6pRzH8G3ZeUtSDEmhTt4Sm4uPBGjcWCz6F+/QKs+z2MvIFHfvkw7W288mHOdZSA3ET7MOXHPAoQPz8gUXf9lTBz/4r6oHv2AJhXMmSEjVPjEle+L7pAvrt9uIs/5uORIhh331Tn5iV1ZefkIgJc33V4FNbRteJG36j6clLPB9pqi5AFX08VNyb+p/W3b0LsuzONzhLS5S2FH0ZYIqeuc6RfJvYZhHYyCybtTrY0SWz6xkvCajoGJOQ1haw8+CutQgYjPA8x73sGo1y8xv1tak/m8x7wgDDsDADWufeguQneIGOHWofBogrRpgcdc2jT11g8S+v7b4W8eC00X3JorJM6fvWK1lczwyCvesuDU36ZwMJ4vaykBZ0uwDCc7gRcyQO5CmJ7MPa9x6bApOLjOwiwKW7wkM27Az8IV93igAZMag4mEALhDex2+AxtI/7y6a4AOpH2LlKRAf08fEeJR2YxcjzBQEPw71Y8UcoAZihEa08Df0Z/peRk=  # GH_TOKEN
+    - secure: t4g8n+HnxmEKs2OvFkLPl/TVhDbXWYjg1VLwpIhex+Em7jtBhFbcdTs53KQx0K05JZf9BBQslobzgZk4o4Wil9WiCax5kPN4UrmG2MSLe2W9OeO3BJYbPkKPyaPlDMXdfsD3CGv8TLdCBsFn2RfsUOgs5bHREbmsCNOkbvZo9M5OItAfzUbmAiLedX3p+JkNKIZ3sbKy5P+5K5d9j8tsCV4oIuhrpdSS55qeI2aQl2i2VQ+hZNFheF1+E1W8hMpBk6LWFJ59mXf2hBb9G7U/rxrIUB0dUrN0Kc9VkEVs5Bz9AYATcIrWy62TpGeoFF9ELrpcjaQMqtWffn9jJ+0ZiBzj5W+Mj91HlwvLZKoFdhVyIp06Iql80vfw0UmQCCxwVOu0MrX0uWfRF4n2ONGLdbC2PE3DpRmERuqDaSsT9WaqvEGdQCndBTrCkV2T2Z2tKVXJO0MUkAhEFVk+kitiGYuzPu/VAsftHgOtignK5b0WZpmT55ps+77kA0hMaA5tp8OIrvBrJFx3/jAABMnAmatTTQ8IiT98iQ1vcKIgpXk8V6tSX1cee2lLHIw7CzRdPn3tvLk7u+jX5oD3ohInWviTheP7tI7Mzd4fvs/ORu2SJWBswzXvzBGKK+C6E31rIZR9jzvuaT6XqBUvr8OKLjYv0Kt1QEy6l/nkno8coh4=  # LUAROCKS_KEY
+  matrix:
+    - LUA_VERSION=luajit-2.0
+    - LUA_VERSION=luajit-2.1
+    - LUA_VERSION=lua-5.1
+    - LUA_VERSION=lua-5.2
+    - LUA_VERSION=lua-5.3
+cache:
+  directories:
+    - .venv
+install:
+  - script/bootstrap
+script:
+  - script/test
+after_success:
+  - script/build-docs
+deploy:
+  - &deploy-script
+    provider: script
+    script: script/deploy-rocks
+    skip_cleanup: true
+    all_branches: true
+    on:
+      condition: >
+        "$TRAVIS_OS_NAME" = linux
+        && "$LUA_VERSION" = lua-5.3
+        && ( "$TRAVIS_BRANCH" = master || "$TRAVIS_TAG" = v* )
+  - <<: *deploy-script
+    script: script/deploy-docs
+

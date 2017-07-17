@@ -1,0 +1,11 @@
+#!/bin/sh
+# vim: set ts=4:
+#
+# Compiles native code.
+#
+set -eu
+
+. "$(dirname "$0")/bootstrap"
+
+einfo 'Building rock'
+luarocks make *.rockspec

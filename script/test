@@ -1,0 +1,20 @@
+#!/bin/sh
+# vim: set ts=4:
+#
+# Runs tests and linters.
+#
+set -eu
+
+. "$(dirname "$0")"/build
+
+
+einfo 'Running tests'
+
+busted --shuffle --verbose
+
+
+einfo 'Running linters'
+
+for rockspec in *.rockspec; do
+	luarocks lint "$rockspec" || exit 1
+done
