@@ -28,12 +28,11 @@ deploy:
     provider: script
     script: script/deploy-rocks
     skip_cleanup: true
-    all_branches: true
     on:
+      os: linux
+      all_branches: true
       condition: >
-        "$TRAVIS_OS_NAME" = linux
-        && "$LUA_VERSION" = lua-5.3
-        && ( "$TRAVIS_BRANCH" = master || "$TRAVIS_TAG" = v* )
+        "$LUA_VERSION" = lua-5.3 && ( "$TRAVIS_BRANCH" = master || "$TRAVIS_TAG" = v* )
   - <<: *deploy-script
     script: script/deploy-docs
 
