@@ -1,0 +1,10 @@
+= Changelog
+:repo-uri: https://github.com/jirutka/brieflz.lua
+:compare: {repo-uri}/compare
+
+All notable changes to this project will be documented in this file.
+
+
+== 0.1.0 (2017-07-18)
+
+First version.
