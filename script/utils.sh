@@ -1,7 +1,6 @@
 # vim: set ts=4:
 
 readonly REPO_NAME='jirutka/brieflz.lua'
-readonly PKG_NAME='brieflz'
 
 readonly HOST_OS=$(uname -s)
 readonly TEMP_DIR="$(pwd)/.tmp"

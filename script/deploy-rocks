@@ -11,7 +11,7 @@ set -eu
 
 . "$(dirname "$0")/bootstrap"
 
-TARBALL_URI="https://github.com/$REPO_NAME/archive/%s/$PKG_NAME-%s.tar.gz"
+TARBALL_URI="https://github.com/$REPO_NAME/archive/%s/${REPO_NAME#*/}-%s.tar.gz"
 
 create_release_spec() {
 	local dev_spec="$1"
@@ -26,7 +26,7 @@ create_release_spec() {
 	sed -E \
 		-e "s/^version *= *['\"].*['\"]/version = '$spec_ver'/" \
 		-e "/^source *= *\{/,/^\}/c\\
-			source = \{ url = '$tarball_url', md5 = '$tarball_md5' \}" \
+source = \{ url = '$tarball_url', md5 = '$tarball_md5' \}" \
 		"$dev_spec" > "$rel_spec"
 
 	echo "$rel_spec"
