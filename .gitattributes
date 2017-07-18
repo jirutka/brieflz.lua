@@ -1,3 +1,12 @@
 # Fool GitHub to not consider script/* when determining
 # repository's main language.
 script/* linguist-vendored
+
+# Exclude from git archive / GitHub tarballs.
+/script export-ignore
+.editorconfig export-ignore
+.envrc export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+.travis.yml export-ignore
+appveyor.yml export-ignore
