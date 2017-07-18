@@ -11,6 +11,9 @@
 #include "brieflz.h"
 
 
+#define LIBNAME "brieflz"
+#define VERSION "0.0.0"
+
 // Copied from Lua 5.3 lauxlib.h for compatibility with Lua <5.3.
 #if !defined(lua_writestringerror)
     #define lua_writestringerror(s,p) \
@@ -147,6 +150,18 @@ static const struct luaL_Reg brieflz_funcs[] = {
 
 int luaopen_brieflz(lua_State *L) {
     luaL_newlib(L, brieflz_funcs);
+
+    /// @field _NAME Name of this module.
+    lua_pushliteral(L, LIBNAME);
+    lua_setfield(L, -2, "_NAME");
+
+    /// @field _VERSION Version of this module.
+    lua_pushliteral(L, VERSION);
+    lua_setfield(L, -2, "_VERSION");
+
+    /// @field _BLZ_VERSION Version of the BriefLZ C library.
+    lua_pushliteral(L, BLZ_VER_STRING);
+    lua_setfield(L, -2, "_BLZ_VERSION");
 
     return 1;  // number of result values
 }

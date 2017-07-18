@@ -1,5 +1,7 @@
+brieflz = require 'brieflz'
+
+import pack, depack from brieflz
 import from_base64 from require 'basexx'
-import pack, depack from require 'brieflz'
 
 data = 'Lórem ipsum dolor šít amet, ipsum amet dolor'
 data_packed = from_base64 'TAAAw7NyZW0gaXBzdW0gZG9sbwUAciDFocOtdCBhbWV0LFCIFwsc'
@@ -57,3 +59,15 @@ describe 'depack', ->
   context 'given nil, 0', ->
     it 'raises error', ->
       assert.has_error -> depack nil, 0
+
+
+describe '_NAME', ->
+  it 'is "brieflz"', ->
+    assert.same 'brieflz', brieflz._NAME
+
+
+for field in *{'_VERSION', '_BLZ_VERSION'}
+  describe field, ->
+    it 'is a version number', ->
+      assert.not_nil brieflz[field]
+      assert.not_nil brieflz[field]\match '^%d+%.%d+%.%d+'
