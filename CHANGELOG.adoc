@@ -5,6 +5,12 @@
 All notable changes to this project will be documented in this file.
 
 
+== link:{compare}/v0.1.0\...v0.1.1[0.1.1] (2017-07-23)
+
+* Fix error handling for `malloc` (use `luaL_error`).
+* Use `lua_Alloc` instead of `malloc` and `free` directly.
+
+
 == 0.1.0 (2017-07-18)
 
 First version.

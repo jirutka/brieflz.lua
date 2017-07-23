@@ -12,7 +12,7 @@
 
 
 #define LIBNAME "brieflz"
-#define VERSION "0.1.0"
+#define VERSION "0.1.1"
 
 // Copied from Lua 5.3 lauxlib.h for compatibility with Lua <5.3.
 #if !defined(lua_writestringerror)
