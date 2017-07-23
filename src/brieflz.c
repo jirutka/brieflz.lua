@@ -63,11 +63,16 @@
  */
 static int brieflz_pack (lua_State *L) {
     size_t src_size;
-
     const char *src = luaL_checklstring(L, 1, &src_size);  // arg #1: data
 
-    void *dest = malloc(blz_max_packed_size(src_size));
-    void *workmem = malloc(blz_workmem_size(src_size));
+    void *ud;
+    const lua_Alloc alloc = lua_getallocf(L, &ud);
+
+    const size_t dest_size = blz_max_packed_size(src_size);
+    const size_t workmem_size = blz_workmem_size(src_size);
+
+    void *dest = alloc(ud, NULL, 0, dest_size);  // malloc
+    void *workmem = alloc(ud, NULL, 0, workmem_size);  // malloc
     if (dest == NULL || workmem == NULL) {
         return luaL_error(L, "not enough memory to pack data");
     }
@@ -79,8 +84,8 @@ static int brieflz_pack (lua_State *L) {
     lua_pushinteger(L, (lua_Integer) src_size);
     lua_pushinteger(L, (lua_Integer) packed_size);
 
-    free(workmem);
-    free(dest);
+    (void) alloc(ud, workmem, workmem_size, 0);  // free
+    (void) alloc(ud, dest, dest_size, 0);  // free
 
     return 3;  // number of result values
 }
@@ -116,19 +121,22 @@ static int brieflz_depack (lua_State *L) {
         return luaL_argerror(L, 2, "must be positive integer");
     }
 
-    void *dest = malloc(dest_size);
+    void *ud;
+    const lua_Alloc alloc = lua_getallocf(L, &ud);
+
+    void *dest = alloc(ud, NULL, 0, dest_size);  // malloc
     if (dest == NULL) {
         return luaL_error(L, "not enough memory to depack data");
     }
 
     if (blz_depack_safe(src, src_size, dest, dest_size) != dest_size) {
-        free(dest);
+        (void) alloc(ud, dest, dest_size, 0);  // free
         return luaL_error(L, "failed to depack data");
     }
 
     lua_pushlstring(L, (const char*) dest, (size_t) dest_size);
 
-    free(dest);
+    (void) alloc(ud, dest, dest_size, 0);  // free
 
     return 1;  // number of result values
 }
