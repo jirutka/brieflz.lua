@@ -46,14 +46,6 @@
 #endif  // Lua 5.1
 
 
-/**
- * Prints the given message to stderr and returns EXIT_FAILURE.
- */
-static int failure (const char *msg) {
-    lua_writestringerror("%s\n", msg);
-    return EXIT_FAILURE;
-}
-
 /***
  * Compresses the given `data` using BriefLZ algorithm.
  *
@@ -77,7 +69,7 @@ static int brieflz_pack (lua_State *L) {
     void *dest = malloc(blz_max_packed_size(src_size));
     void *workmem = malloc(blz_workmem_size(src_size));
     if (dest == NULL || workmem == NULL) {
-        return failure("not enough memory");
+        return luaL_error(L, "not enough memory to pack data");
     }
 
     const unsigned long packed_size = blz_pack(src, dest, src_size, workmem);
@@ -126,7 +118,7 @@ static int brieflz_depack (lua_State *L) {
 
     void *dest = malloc(dest_size);
     if (dest == NULL) {
-        return failure("not enough memory");
+        return luaL_error(L, "not enough memory to depack data");
     }
 
     if (blz_depack_safe(src, src_size, dest, dest_size) != dest_size) {
