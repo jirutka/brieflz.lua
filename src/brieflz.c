@@ -14,12 +14,6 @@
 #define LIBNAME "brieflz"
 #define VERSION "0.1.1"
 
-// Copied from Lua 5.3 lauxlib.h for compatibility with Lua <5.3.
-#if !defined(lua_writestringerror)
-    #define lua_writestringerror(s,p) \
-            (fprintf(stderr, (s), (p)), fflush(stderr))
-#endif
-
 // Copied from lua-compat-5.2 for compatibility with Lua 5.1.
 #if !defined(luaL_newlib)
     #define luaL_newlib(L, l) \
