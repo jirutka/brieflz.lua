@@ -5,10 +5,12 @@ Jakub Jirutka <https://github.com/jirutka[@jirutka]>
 :repo-name: brieflz.lua
 :gh-name: jirutka/{repo-name}
 :gh-branch: master
+:appveyor-id: jwnh6vo4hpqcb2a5
 :ldoc-url: https://jirutka.github.io/{repo-name}/ldoc/
 
 ifdef::env-github[]
 image:https://travis-ci.org/{gh-name}.svg?branch={gh-branch}["Build Status", link="https://travis-ci.org/{gh-name}"]
+image:https://ci.appveyor.com/api/projects/status/{appveyor-id}/branch/{gh-branch}?svg=true["Windows Build Status", link="https://ci.appveyor.com/project/jirutka/brieflz-lua"]
 image:https://img.shields.io/badge/ldoc-docs-blue.svg["LDoc", link="{ldoc-url}"]
 endif::env-github[]
 

@@ -9,7 +9,10 @@ readonly VENV_DIR="$(pwd)/.venv"
 case "$HOST_OS" in
 	Darwin)
 		alias sha256sum='shasum -a 256'
-		alias md5sum='md5'
+		alias md5sum='md5';;
+	MINGW* | Windows)
+		alias busted='busted.bat'
+		alias luarocks='luarocks.bat';;
 esac
 
 einfo() {
@@ -53,6 +56,14 @@ is_release() {
 	else
 		ewarn 'Could not detect release; not in a git repository or on Travis CI'
 	fi
+}
+
+# Prints version of the specified Lua binary, or "lua" on PATH if $1 is empty.
+# This is API version, i.e. it's the same for Lua and LuaJIT.
+lua_version() {
+	local lua_path="${1:-lua}"
+
+	$lua_path -e 'print(_VERSION:sub(5))'
 }
 
 # Fetches the given URL and verifies SHA256 checksum.
