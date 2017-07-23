@@ -11,7 +11,7 @@
 #include "brieflz.h"
 
 #define LIBNAME "brieflz"
-#define VERSION "0.1.1"
+#define VERSION "0.1.2"
 
 
 // Copied from lua-compat-5.2 for compatibility with Lua 5.1 and LuaJIT 2.0.
