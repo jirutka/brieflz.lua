@@ -10,21 +10,18 @@
 
 #include "brieflz.h"
 
-
 #define LIBNAME "brieflz"
 #define VERSION "0.1.1"
 
-// Copied from lua-compat-5.2 for compatibility with Lua 5.1.
+
+// Copied from lua-compat-5.2 for compatibility with Lua 5.1 and LuaJIT 2.0.
 #if !defined(luaL_newlib)
+
     #define luaL_newlib(L, l) \
-        (lua_newtable((L)),luaL_setfuncs((L), (l), 0))
-#endif
+        (lua_newtable((L)),_luaL_setfuncs((L), (l), 0))
 
-#if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM == 501  // Lua 5.1
-
-    // Copied from lua-compat-5.2 for compatibility with Lua 5.1.
-    void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
-        luaL_checkstack(L, nup+1, "too many upvalues");
+    static void _luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+        luaL_checkstack(L, nup + 1, "too many upvalues");
 
         for (; l->name != NULL; l++) {
             int i;
@@ -37,7 +34,7 @@
         }
         lua_pop(L, nup);
     }
-#endif  // Lua 5.1
+#endif  // !luaL_newlib
 
 
 /***

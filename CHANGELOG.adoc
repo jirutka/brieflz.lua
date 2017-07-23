@@ -5,6 +5,11 @@
 All notable changes to this project will be documented in this file.
 
 
+== Unreleased
+
+* Hide function `luaL_setfuncs` (copied from lua-compat-5.2) to avoid clashes.
+
+
 == link:{compare}/v0.1.0\...v0.1.1[0.1.1] (2017-07-23)
 
 * Fix error handling for `malloc` (use `luaL_error`).
