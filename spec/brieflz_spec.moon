@@ -4,7 +4,7 @@ import pack, depack from brieflz
 import from_base64 from require 'basexx'
 
 data = 'Lórem ipsum dolor šít amet, ipsum amet dolor'
-data_packed = from_base64 'TAAAw7NyZW0gaXBzdW0gZG9sbwUAciDFocOtdCBhbWV0LFCIFwsc'
+data_packed = from_base64 'TAAAw7NyZW0gaXBzdW0gZG9sbwUAciDFocOtdCBhbWV0LFCIFwscAIA='
 
 
 describe 'pack', ->
