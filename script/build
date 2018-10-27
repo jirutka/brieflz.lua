@@ -7,5 +7,9 @@ set -eu
 
 . "$(dirname "$0")/bootstrap"
 
+case "$HOST_OS" in
+	Linux) CFLAGS="-std=c99 -Os -fPIC";;
+esac
+
 einfo 'Building rock'
-luarocks make *.rockspec
+luarocks make ${CFLAGS:+"CFLAGS=$CFLAGS"} *.rockspec
