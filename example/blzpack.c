@@ -1,7 +1,7 @@
 /*
  * blzpack - BriefLZ example
  *
- * Copyright (c) 2002-2016 Joergen Ibsen
+ * Copyright (c) 2002-2018 Joergen Ibsen
  *
  * This software is provided 'as-is', without any express or implied
  * warranty. In no event will the authors be held liable for any damages
@@ -27,8 +27,10 @@
  * This is a simple example packer, which can compress and decompress a
  * single file using BriefLZ.
  *
- * It processes the data in blocks of 1024k. Adjust BLOCK_SIZE to 56k or less
- * to compile for 16-bit.
+ * It processes the data in blocks of 1024k. Adjust DEFAULT_BLOCK_SIZE to
+ * 56k or less to compile for 16-bit. The user can supply a block size with
+ * the -b option. When decompressing, if a larger block occurs in the file,
+ * the decompression fails with an error indicating that block's size.
  *
  * Each compressed block starts with a 24 byte header with the following
  * format:
@@ -45,7 +47,9 @@
  * and write_be32() functions.
  */
 
+#include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,11 +59,16 @@
 #include "parg.h"
 
 /*
- * The block-size used to process data.
+ * The default block size used to process data.
  */
-#ifndef BLOCK_SIZE
-#  define BLOCK_SIZE (1024 * 1024UL)
+#ifndef DEFAULT_BLOCK_SIZE
+#  define DEFAULT_BLOCK_SIZE (1024 * 1024UL)
 #endif
+
+/*
+ * Maximum 32-bit block size that will not overflow blz_max_packed_size().
+ */
+#define MAX_BLOCK_SIZE (0xFFFFFFFFUL - 0xFFFFFFFFUL / 9UL - 64UL)
 
 /*
  * The size of the block header.
@@ -154,8 +163,116 @@ ratio(unsigned long x, unsigned long y)
 	return (unsigned int) (x / y);
 }
 
+/*
+ * Convert string with optional size suffix to unsigned long.
+ */
 static int
-compress_file(const char *oldname, const char *packedname, int use_checksum)
+strtosize(const char *s, char **endp, unsigned long *val)
+{
+	char *ep = (char *) s;
+	unsigned long v;
+	int power = 0;
+	int orig_errno = errno;
+
+	errno = 0;
+
+	v = strtoul(s, &ep, 10);
+
+	if (endp) {
+		*endp = ep;
+	}
+
+	if (val) {
+		*val = v;
+	}
+
+	if (ep == s) {
+		return -2;
+	}
+
+	switch (*ep) {
+	case 'k':
+	case 'K':
+		power = 1;
+		++ep;
+		break;
+	case 'm':
+	case 'M':
+		power = 2;
+		++ep;
+		break;
+	case 'g':
+	case 'G':
+		power = 3;
+		++ep;
+		break;
+	default:
+		break;
+	}
+
+	if (endp) {
+		*endp = ep;
+	}
+
+	if (v == ULONG_MAX && errno == ERANGE) {
+		return -1;
+	}
+
+	while (power-- > 0) {
+		if (v > ULONG_MAX / 1024UL) {
+			if (val) {
+				*val = ULONG_MAX;
+			}
+			errno = ERANGE;
+			return -1;
+		}
+		v *= 1024UL;
+	}
+
+	if (val) {
+		*val = v;
+	}
+
+	errno = orig_errno;
+
+	return 0;
+}
+
+static void
+printf_error(const char *fmt, ...)
+{
+	va_list arg;
+
+	fputs("blzpack: ", stderr);
+
+	va_start(arg, fmt);
+	vfprintf(stderr, fmt, arg);
+	va_end(arg);
+
+	fputs("\n", stderr);
+}
+
+static void
+printf_usage(const char *fmt, ...)
+{
+	va_list arg;
+
+	fputs("blzpack: ", stderr);
+
+	va_start(arg, fmt);
+	vfprintf(stderr, fmt, arg);
+	va_end(arg);
+
+	fputs("\n"
+	      "usage: blzpack [-123456789 | --optimal] [-b SIZE] [-cv] INFILE OUTFILE\n"
+	      "       blzpack -d [-b SIZE] [-csv] INFILE OUTFILE\n"
+	      "       blzpack -V | --version\n"
+	      "       blzpack -h | --help\n", stderr);
+}
+
+static int
+compress_file(const char *oldname, const char *packedname, int be_verbose,
+              int use_checksum, int level, unsigned long blocksize)
 {
 	byte header[HEADER_SIZE] = { 0x62, 0x6C, 0x7A, 0x1A, 0, 0, 0, 1 };
 	FILE *oldfile = NULL;
@@ -168,48 +285,46 @@ compress_file(const char *oldname, const char *packedname, int use_checksum)
 	unsigned int counter = 0;
 	size_t n_read;
 	clock_t clocks;
-	int res = 0;
+	int res = 1;
 
 	/* Allocate memory */
-	if ((data = (byte *) malloc(BLOCK_SIZE)) == NULL
-	 || (packed = (byte *) malloc(blz_max_packed_size(BLOCK_SIZE))) == NULL
-	 || (workmem = (byte *) malloc(blz_workmem_size(BLOCK_SIZE))) == NULL) {
-		printf("ERR: not enough memory\n");
-		res = 1;
+	if ((data = (byte *) malloc(blocksize)) == NULL
+	 || (packed = (byte *) malloc(blz_max_packed_size(blocksize))) == NULL
+	 || (workmem = (byte *) malloc(blz_workmem_size_level(blocksize, level))) == NULL) {
+		printf_error("not enough memory");
 		goto out;
 	}
 
 	/* Open input file */
 	if ((oldfile = fopen(oldname, "rb")) == NULL) {
-		printf("ERR: unable to open input file\n");
-		res = 1;
+		printf_usage("unable to open input file '%s'", oldname);
 		goto out;
 	}
 
 	/* Create output file */
 	if ((packedfile = fopen(packedname, "wb")) == NULL) {
-		printf("ERR: unable to open output file\n");
-		res = 1;
+		printf_usage("unable to open output file '%s'", packedname);
 		goto out;
 	}
 
 	clocks = clock();
 
 	/* While we are able to read data from input file .. */
-	while ((n_read = fread(data, 1, BLOCK_SIZE, oldfile)) > 0) {
+	while ((n_read = fread(data, 1, blocksize, oldfile)) > 0) {
 		size_t packedsize;
 
 		/* Show a little progress indicator */
-		printf("%c\r", rotator[counter]);
-		counter = (counter + 1) & 0x03;
+		if (be_verbose) {
+			fprintf(stderr, "%c\r", rotator[counter]);
+			counter = (counter + 1) & 0x03;
+		}
 
 		/* Compress data block */
-		packedsize = blz_pack(data, packed, (unsigned long) n_read, workmem);
+		packedsize = blz_pack_level(data, packed, (unsigned long) n_read, workmem, level);
 
 		/* Check for compression error */
 		if (packedsize == 0) {
-			printf("ERR: an error occured while compressing\n");
-			res = 1;
+			printf_error("an error occured while compressing");
 			goto out;
 		}
 
@@ -238,9 +353,13 @@ compress_file(const char *oldname, const char *packedname, int use_checksum)
 	clocks = clock() - clocks;
 
 	/* Show result */
-	printf("compressed %lu -> %lu bytes (%u%%) in %.2f seconds\n",
-	       insize, outsize, ratio(outsize, insize),
-	       (double) clocks / (double) CLOCKS_PER_SEC);
+	if (be_verbose) {
+		fprintf(stderr, "in %lu out %lu ratio %u%% time %.2f\n",
+		        insize, outsize, ratio(outsize, insize),
+		        (double) clocks / (double) CLOCKS_PER_SEC);
+	}
+
+	res = 0;
 
 out:
 	/* Close files */
@@ -266,7 +385,8 @@ out:
 }
 
 static int
-decompress_file(const char *packedname, const char *newname, int use_checksum)
+decompress_file(const char *packedname, const char *newname, int be_verbose,
+                int use_checksum, int use_safe, unsigned long blocksize)
 {
 	byte header[HEADER_SIZE];
 	FILE *newfile = NULL;
@@ -278,29 +398,26 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 	unsigned int counter = 0;
 	clock_t clocks;
 	size_t max_packed_size;
-	int res = 0;
+	int res = 1;
 
-	max_packed_size = blz_max_packed_size(BLOCK_SIZE);
+	max_packed_size = blz_max_packed_size(blocksize);
 
 	/* Allocate memory */
-	if ((data = (byte *) malloc(BLOCK_SIZE)) == NULL
+	if ((data = (byte *) malloc(blocksize)) == NULL
 	 || (packed = (byte *) malloc(max_packed_size)) == NULL) {
-		printf("ERR: not enough memory\n");
-		res = 1;
+		printf_error("not enough memory");
 		goto out;
 	}
 
 	/* Open input file */
 	if ((packedfile = fopen(packedname, "rb")) == NULL) {
-		printf("ERR: unable to open input file\n");
-		res = 1;
+		printf_usage("unable to open input file '%s'", packedname);
 		goto out;
 	}
 
 	/* Create output file */
 	if ((newfile = fopen(newname, "wb")) == NULL) {
-		printf("ERR: unable to open output file\n");
-		res = 1;
+		printf_usage("unable to open output file '%s'", newname);
 		goto out;
 	}
 
@@ -312,8 +429,10 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 		unsigned long crc;
 
 		/* Show a little progress indicator */
-		printf("%c\r", rotator[counter]);
-		counter = (counter + 1) & 0x03;
+		if (be_verbose) {
+			fprintf(stderr, "%c\r", rotator[counter]);
+			counter = (counter + 1) & 0x03;
+		}
 
 		/* Get compressed and original size from header */
 		hdr_packedsize = (size_t) read_be32(header + 2 * 4);
@@ -321,18 +440,22 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 
 		/* Verify values in header */
 		if (read_be32(header + 0 * 4) != 0x626C7A1AUL /* "blz\x1A" */
-		 || read_be32(header + 1 * 4) != 1
-		 || hdr_packedsize > max_packed_size
-		 || hdr_depackedsize > BLOCK_SIZE) {
-			printf("ERR: invalid header in compressed file\n");
-			res = 1;
+		 || read_be32(header + 1 * 4) != 1) {
+			printf_error("invalid header in compressed file");
+			goto out;
+		}
+
+		/* Check blocksize is sufficient */
+		if (hdr_packedsize > max_packed_size
+		 || hdr_depackedsize > blocksize) {
+			printf_usage("compressed file requires block size"
+				     " >= %lu bytes", hdr_depackedsize);
 			goto out;
 		}
 
 		/* Read compressed data */
 		if (fread(packed, 1, hdr_packedsize, packedfile) != hdr_packedsize) {
-			printf("ERR: error reading block from compressed file\n");
-			res = 1;
+			printf_error("error reading block from compressed file");
 			goto out;
 		}
 
@@ -341,18 +464,23 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 		if (use_checksum
 		 && crc != 0
 		 && crc != blz_crc32(packed, hdr_packedsize, 0)) {
-			printf("ERR: compressed data crc error\n");
-			res = 1;
+			printf_error("compressed data crc error");
 			goto out;
 		}
 
 		/* Decompress data */
-		depackedsize = blz_depack(packed, data, (unsigned long) hdr_depackedsize);
+		if (use_safe) {
+			depackedsize = blz_depack_safe(
+					packed, (unsigned long) hdr_packedsize,
+					data, (unsigned long) hdr_depackedsize);
+		} else {
+			depackedsize = blz_depack(packed, data,
+					(unsigned long) hdr_depackedsize);
+		}
 
 		/* Check for decompression error */
 		if (depackedsize != hdr_depackedsize) {
-			printf("ERR: an error occured while decompressing\n");
-			res = 1;
+			printf_error("an error occured while decompressing");
 			goto out;
 		}
 
@@ -361,8 +489,7 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 		if (use_checksum
 		 && crc != 0
 		 && crc != blz_crc32(data, depackedsize, 0)) {
-			printf("ERR: decompressed file crc error\n");
-			res = 1;
+			printf_error("decompressed data crc error");
 			goto out;
 		}
 
@@ -377,9 +504,13 @@ decompress_file(const char *packedname, const char *newname, int use_checksum)
 	clocks = clock() - clocks;
 
 	/* Show result */
-	printf("decompressed %lu -> %lu bytes in %.2f seconds\n",
-	       insize, outsize,
-	       (double) clocks / (double) CLOCKS_PER_SEC);
+	if (be_verbose) {
+		fprintf(stderr, "in %lu out %lu ratio %u%% time %.2f\n",
+		        insize, outsize, ratio(insize, outsize),
+		        (double) clocks / (double) CLOCKS_PER_SEC);
+	}
+
+	res = 0;
 
 out:
 	/* Close files */
@@ -404,49 +535,63 @@ out:
 static void
 print_syntax(void)
 {
-	printf("Usage: blzpack [options] <infile> <outfile>\n"
-	       "\n"
-	       "Options:\n"
-	       "  -d, --decompress  Decompress\n"
-	       "  -c, --checksum    Use checksums if present\n"
-	       "  -h, --help        Print this help and exit\n"
-	       "  -V, --version     Print version and exit\n"
-	       "\n");
+	fputs("usage: blzpack [options] INFILE OUTFILE\n"
+	      "\n"
+	      "options:\n"
+	      "  -1                     compress faster (default)\n"
+	      "  -9                     compress better\n"
+	      "      --optimal          optimal but very slow compression\n"
+	      "  -b, --block-size=SIZE  block size with opt. k/m/g suffix\n"
+	      "  -c, --checksum         use checksums if present\n"
+	      "  -d, --decompress       decompress\n"
+	      "  -s, --safe             use safe depacker\n"
+	      "  -h, --help             print this help and exit\n"
+	      "  -v, --verbose          verbose mode\n"
+	      "  -V, --version          print version and exit\n"
+	      "\n", stdout);
 }
 
 static void
 print_version(void)
 {
-	printf("blzpack " BLZ_VER_STRING "\n"
-	       "\n"
-	       "Copyright (c) 2002-2016 Joergen Ibsen\n"
-	       "\n"
-	       "Licensed under the zlib license.\n"
-	       "There is NO WARRANTY, to the extent permitted by law.\n"
-	       "\n");
+	fputs("blzpack " BLZ_VER_STRING "\n"
+	      "\n"
+	      "Copyright (c) 2002-2018 Joergen Ibsen\n"
+	      "\n"
+	      "Licensed under the zlib license (Zlib).\n"
+	      "There is NO WARRANTY, to the extent permitted by law.\n", stdout);
 }
 
 int
 main(int argc, char *argv[])
 {
 	struct parg_state ps;
-	int flag_decompress = 0;
-	int flag_checksum = 0;
 	const char *infile = NULL;
 	const char *outfile = NULL;
+	char *endptr = NULL;
+	unsigned long blocksize = DEFAULT_BLOCK_SIZE;
+	int flag_checksum = 0;
+	int flag_decompress = 0;
+	int flag_safe = 0;
+	int flag_verbose = 0;
+	int level = 1;
 	int c;
 
 	const struct parg_option long_options[] = {
+		{ "block-size", PARG_REQARG, NULL, 'b' },
 		{ "checksum", PARG_NOARG, NULL, 'c' },
 		{ "decompress", PARG_NOARG, NULL, 'd' },
 		{ "help", PARG_NOARG, NULL, 'h' },
+		{ "optimal", PARG_NOARG, NULL, 'x' },
+		{ "safe", PARG_NOARG, NULL, 's' },
+		{ "verbose", PARG_NOARG, NULL, 'v' },
 		{ "version", PARG_NOARG, NULL, 'V' },
 		{ 0, 0, 0, 0 }
 	};
 
 	parg_init(&ps);
 
-	while ((c = parg_getopt_long(&ps, argc, argv, "cdhV", long_options, NULL)) != -1) {
+	while ((c = parg_getopt_long(&ps, argc, argv, "123456789b:cdhsvVx", long_options, NULL)) != -1) {
 		switch (c) {
 		case 1:
 			if (infile == NULL) {
@@ -456,8 +601,30 @@ main(int argc, char *argv[])
 				outfile = ps.optarg;
 			}
 			else {
-				printf("Too many arguments.\n\n");
-				print_syntax();
+				printf_usage("too many arguments");
+				return EXIT_FAILURE;
+			}
+			break;
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			level = c - '0';
+			break;
+		case 'x':
+			level = 10;
+			break;
+		case 'b':
+			if (strtosize(ps.optarg, &endptr, &blocksize)
+			 || *endptr != '\0'
+			 || blocksize == 0
+			 || blocksize > MAX_BLOCK_SIZE) {
+				printf_usage("invalid block size '%s'", ps.optarg);
 				return EXIT_FAILURE;
 			}
 			break;
@@ -471,38 +638,35 @@ main(int argc, char *argv[])
 			print_syntax();
 			return EXIT_SUCCESS;
 			break;
+		case 's':
+			flag_safe = 1;
+			break;
+		case 'v':
+			flag_verbose = 1;
+			break;
 		case 'V':
 			print_version();
 			return EXIT_SUCCESS;
 			break;
 		default:
-			printf("Option error at '%s'\n\n", argv[ps.optind - 1]);
-			print_syntax();
+			printf_usage("unknown option '%s'", argv[ps.optind - 1]);
 			return EXIT_FAILURE;
 			break;
 		}
 	}
 
 	if (outfile == NULL) {
-		printf("Too few arguments.\n\n");
-		print_syntax();
+		printf_usage("too few arguments");
 		return EXIT_FAILURE;
 	}
 
-#ifdef __WATCOMC__
-	/* Unlike BC, which unbuffers stdout if it is a device, OpenWatcom 1.2
-	   line buffers stdout; this prevents "rotator" trick based on output
-	   of "\r" and writing new line over previous. To make rotator work
-	   we unbuffer stdout manually:
-	 */
-	setbuf(stdout, NULL);
-#endif
-
 	if (flag_decompress) {
-		return decompress_file(infile, outfile, flag_checksum);
+		return decompress_file(infile, outfile, flag_verbose,
+		                       flag_checksum, flag_safe, blocksize);
 	}
 	else {
-		return compress_file(infile, outfile, flag_checksum);
+		return compress_file(infile, outfile, flag_verbose,
+		                     flag_checksum, level, blocksize);
 	}
 
 	return EXIT_SUCCESS;
