@@ -30,7 +30,24 @@ or to get the latest development version:
 [source, subs="+attributes"]
 luarocks install --server=http://luarocks.org/dev {name}
 
-Note: If you want to bootstrap development environment for running tests, read the next section.
+Tip: If you want to bootstrap development environment for running tests, read the next section.
+
+[NOTE]
+====
+If you have an old gcc version you may encounter error:
+
+....
+vendor/brieflz/src/brieflz.c: In function ‘blz_pack’:
+vendor/brieflz/src/brieflz.c:466:2: error: ‘for’ loop initial declarations are only allowed in C99 mode
+  for (unsigned long i = 0; i < LOOKUP_SIZE; ++i) {
+  ^
+....
+
+In that case you have to explicitly enable C99 mode when installing {name}:
+
+[source, subs="+attributes"]
+luarocks install CFLAGS="-std=c99 -Os -fPIC" {name}
+====
 
 
 == Set up development environment
